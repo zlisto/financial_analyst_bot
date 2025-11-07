@@ -24,7 +24,7 @@ from langchain_openai import ChatOpenAI
 from crewai_tools import FileWriterTool
 from langchain_core.tools import tool
 from datetime import datetime
-from serpapi import GoogleSearch
+from serpapi.google_search import GoogleSearch
 
 # Load environment variables
 load_dotenv()
