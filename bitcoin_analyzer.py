@@ -44,6 +44,13 @@ llm = ChatOpenAI(
 
 
 # Initialize tools
+# Ensure serpapi is available before initializing the tool
+try:
+    import serpapi
+except ImportError:
+    raise ImportError("serpapi package is required. Install it with: pip install serpapi")
+
+# Initialize SerpAPI tool (will use SERPAPI_API_KEY from environment)
 search_bitcoin_articles = SerpApiGoogleSearchTool()
 write_html_file = FileWriterTool(file_path="output.html")
 
