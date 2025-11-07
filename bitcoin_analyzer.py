@@ -114,7 +114,7 @@ google_search_agent = Agent(
     about Bitcoin market trends, price movements, and trading signals.""",
     verbose=True,
     allow_delegation=False,
-    tools=[search_bitcoin_articles] if search_bitcoin_articles else [],
+    tools=[search_bitcoin_articles],
     llm=llm
 )
 
