@@ -21,8 +21,10 @@ if sys.platform == 'win32':
         pass  # Ignore if already wrapped, closed, or can't be wrapped
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
-from crewai_tools import SerpApiGoogleSearchTool, FileWriterTool
+from crewai_tools import FileWriterTool
+from langchain_core.tools import tool
 from datetime import datetime
+from serpapi import GoogleSearch
 
 # Load environment variables
 load_dotenv()
@@ -43,15 +45,63 @@ llm = ChatOpenAI(
 )
 
 
-# Initialize tools
-# Ensure serpapi is available before initializing the tool
-try:
-    import serpapi
-except ImportError:
-    raise ImportError("serpapi package is required. Install it with: pip install serpapi")
+# Custom SerpAPI tool to avoid interactive prompts
+@tool("search_bitcoin_articles")
+def search_bitcoin_articles(query: str = "Bitcoin BTC market price trading news today") -> str:
+    """Search Google News for recent Bitcoin articles from the past 24 hours.
+    
+    Args:
+        query: Search query string (default: Bitcoin BTC market price trading news today)
+    
+    Returns:
+        Formatted string with article titles, sources, dates, and snippets
+    """
+    try:
+        api_key = os.getenv("SERPAPI_API_KEY")
+        if not api_key:
+            return "Error: SERPAPI_API_KEY not found in environment variables"
+        
+        # Use default query if empty or just whitespace
+        if not query or not query.strip():
+            query = "Bitcoin BTC market price trading news today"
+        
+        params = {
+            "q": query.strip(),
+            "api_key": api_key,
+            "num": 10,
+            "tbm": "nws",  # News search
+            "tbs": "qdr:d"  # Past day (recent articles)
+        }
+        
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        # Check for API errors
+        if "error" in results:
+            return f"SerpAPI Error: {results.get('error', 'Unknown error')}"
+        
+        articles = []
+        if "news_results" in results and results["news_results"]:
+            for item in results["news_results"][:10]:
+                article_text = f"Title: {item.get('title', 'N/A')}\n"
+                article_text += f"Source: {item.get('source', 'N/A')}\n"
+                article_text += f"Date: {item.get('date', 'N/A')}\n"
+                article_text += f"Snippet: {item.get('snippet', 'N/A')}\n"
+                if "link" in item:
+                    article_text += f"Link: {item['link']}\n"
+                article_text += "\n---\n"
+                articles.append(article_text)
+        
+        if not articles:
+            return "No recent articles found. Try adjusting the search query or check if there are any articles from the past 24 hours."
+        
+        return "\n".join(articles)
+    except KeyError as e:
+        return f"Error: Missing expected data in API response - {str(e)}"
+    except Exception as e:
+        return f"Error searching: {str(e)}"
 
-# Initialize SerpAPI tool (will use SERPAPI_API_KEY from environment)
-search_bitcoin_articles = SerpApiGoogleSearchTool()
+# Initialize tools
 write_html_file = FileWriterTool(file_path="output.html")
 
 
@@ -64,7 +114,7 @@ google_search_agent = Agent(
     about Bitcoin market trends, price movements, and trading signals.""",
     verbose=True,
     allow_delegation=False,
-    tools=[search_bitcoin_articles],
+    tools=[search_bitcoin_articles] if search_bitcoin_articles else [],
     llm=llm
 )
 
